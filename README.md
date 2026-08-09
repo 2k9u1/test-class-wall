@@ -38,8 +38,14 @@ Antigravity(또는 VS Code)에서 `Live Server` 확장을 설치하고,
 | `app.js` | 메모 데이터, 읽기·쓰기·지우기, 화면 그리기 |
 | `api/gemini.js` | Gemini를 부를 서버 코드가 들어올 자리 |
 
-## 요금제
+## 이 프로젝트의 규칙
 
 Firebase는 **무료 요금제(Spark)** 로 진행합니다.
-서버가 필요한 일(Gemini 호출)은 Firebase Functions 대신 Vercel의 무료 함수를 씁니다.
-Firebase Functions는 유료 요금제(Blaze)라야 쓸 수 있기 때문입니다.
+
+그래서 **Firebase Functions는 쓰지 않습니다.** 유료 요금제(Blaze)라야 동작하기 때문입니다.
+서버가 필요한 일(Gemini 호출)은 **Vercel 서버리스 함수**로 만듭니다. `api/` 폴더가 그 자리입니다.
+
+> AI에게 Gemini 연결을 시키면 대개 Firebase Functions 코드를 줍니다.
+> 프롬프트에 **"Vercel 서버리스 함수로 만들어 줘"** 라고 꼭 적으세요.
+
+자세한 규칙은 `AGENTS.md`에 있습니다. AI 코딩 도구가 이 파일을 읽습니다.
