@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>성장형 교사개발자 과정 보드</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>">
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    h1 { font-size: 22px; }
+    .notice { background: #ffe9e9; padding: 10px; margin-bottom: 16px; }
+
+    /* 컬럼을 가로로 늘어놓습니다 */
+    #board { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; }
+    .column { border: 1px solid #ccc; padding: 10px; width: 240px; flex-shrink: 0; }
+    .column h2 { font-size: 15px; margin: 0 0 10px; }
+
+    .card { border: 1px solid #ddd; background: #fffde7; padding: 8px; margin-bottom: 6px; font-size: 14px; }
+    .card button { float: right; }
+
+    textarea { width: 100%; box-sizing: border-box; }
+  </style>
+</head>
+<body>
+
+  <h1>성장형 교사개발자 과정 보드</h1>
+
+  <!-- 백엔드 1 시간에 저장 기능을 붙이면 이 안내문은 지웁니다 -->
+  <p class="notice">아직 저장 기능이 없습니다. 새로고침하면 방금 쓴 카드가 모두 사라집니다.</p>
+
+  <!-- 컬럼과 카드는 app.js가 그립니다 -->
+  <div id="board"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
