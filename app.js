@@ -7,26 +7,44 @@
 // ===================================================
 
 
-// --- 메모 목록 (앞에 있는 것이 먼저 올린 메모) ---
+// --- 메모 목록 ---
+// createdAt 은 메모를 쓴 시각(밀리초)입니다. 이 값으로 순서를 정합니다.
 let memos = [
-  { id: 1, text: "오늘 과학 시간에 한 실험이 재미있었다" },
-  { id: 2, text: "궁금한 점 - 물은 왜 100도에서 끓나요?" },
-  { id: 3, text: "모둠 친구들이 도와줘서 고마웠다" }
+  { id: 1, text: "오늘 과학 시간에 한 실험이 재미있었다", createdAt: 1757030400000 },
+  { id: 2, text: "궁금한 점 - 물은 왜 100도에서 끓나요?", createdAt: 1757030500000 },
+  { id: 3, text: "모둠 친구들이 도와줘서 고마웠다", createdAt: 1757030600000 }
 ];
 
 let nextId = 4;  // 새 메모에 붙일 번호
 
 
 // ===================================================
-// 데이터를 다루는 함수
-// 백엔드 1 시간에 이 부분이 Firestore로 바뀝니다.
+// 데이터를 다루는 함수 세 개
+// 백엔드 1 시간에 이 세 개가 Firestore를 쓰는 코드로 바뀝니다.
 // ===================================================
 
+// 메모를 읽어 옵니다.
+// 백엔드 1: 여기가 Firestore에서 가져오는 코드로 바뀝니다.
+//           순서는 orderBy("createdAt") 으로 맞춥니다.
+function loadMemos() {
+  return memos.slice().sort(function (a, b) {
+    return a.createdAt - b.createdAt;
+  });
+}
+
+// 메모를 새로 씁니다.
+// 백엔드 2: 여기에 "누가 썼는지"(uid)를 함께 저장하게 됩니다.
 function addMemo(text) {
-  memos.push({ id: nextId, text: text });
+  memos.push({
+    id: nextId,
+    text: text,
+    createdAt: Date.now()
+  });
   nextId = nextId + 1;
 }
 
+// 메모를 지웁니다.
+// 백엔드 2: 지금은 누구든 남의 메모를 지울 수 있습니다. 이걸 막는 것이 과제입니다.
 function deleteMemo(id) {
   memos = memos.filter(function (memo) {
     return memo.id !== id;
@@ -42,7 +60,7 @@ function render() {
   const wall = document.getElementById("wall");
   wall.innerHTML = "";
 
-  memos.forEach(function (memo) {
+  loadMemos().forEach(function (memo) {
     wall.appendChild(makeMemo(memo));
   });
 }
