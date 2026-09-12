@@ -388,30 +388,56 @@ function makeMemo(memo) {
 
 
 // ===================================================
-// 메모 쓰는 칸
-// 엔터를 누르면 담벼락에 붙습니다 (줄바꿈은 Shift + 엔터)
+// 메모 쓰는 칸 및 등록 처리
+// 엔터를 누르거나 [메모 올리기] 버튼을 누르면 담벼락에 붙습니다.
+// (줄바꿈은 Shift + 엔터)
 // ===================================================
 
 const input = document.getElementById("input");
+const submitBtn = document.getElementById("submitBtn");
+let isSubmitting = false;
 
-input.addEventListener("keydown", async function (e) {
-  if (e.isComposing) return;
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
+// 메모 등록 공통 처리 함수
+async function submitMemo() {
+  if (isSubmitting) return;
 
-    const text = input.value.trim();
-    if (text === "") return;
+  const text = input.value.trim();
+  if (text === "") return;
 
-    if (text.length < 5) {
-      alert("메모는 5글자 이상 입력해 주세요.");
-      return;
-    }
+  if (!currentUser) {
+    alert("메모를 작성하려면 먼저 상단의 Google 로그인을 해 주세요.");
+    return;
+  }
 
+  if (text.length < 5) {
+    alert("메모는 5글자 이상 입력해 주세요.");
+    return;
+  }
+
+  isSubmitting = true;
+  try {
     await addMemo(text);
     input.value = "";
     await render();
+  } catch (error) {
+    console.error("등록 처리 중 오류:", error);
+  } finally {
+    isSubmitting = false;
+  }
+}
+
+// 엔터 키 누름 이벤트 (한글 조합 및 영문 모두 정상 동작)
+input.addEventListener("keydown", function (e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    submitMemo();
   }
 });
+
+// [메모 올리기] 버튼 클릭 이벤트
+if (submitBtn) {
+  submitBtn.addEventListener("click", submitMemo);
+}
 
 
 // 로그인 상태 변경 감시 (로그인 또는 로그아웃 시 화면 자동 갱신)
@@ -425,5 +451,6 @@ onAuthStateChanged(auth, function (user) {
 renderUserArea();
 render();
 input.focus();
+
 
 
