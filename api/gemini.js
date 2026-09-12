@@ -43,8 +43,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 무료 티어로 제공되는 빠른 gemini-2.5-flash 모델 사용
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    // 요청에 따라 Gemini 3.6 모델(gemini-3.6-flash) 사용
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const fallbackModel = "gemini-2.5-flash";
 
     const prompt = `당신은 초·중등학교 교실의 다정하고 따뜻한 선생님입니다.
 학생이 교실 담벼락에 작성한 다음 메모를 읽고, 공감과 칭찬, 또는 생각의 확장을 돕는 다정한 피드백 코멘트(1~2문장 내외)를 작성해 주세요.
@@ -53,19 +54,36 @@ export default async function handler(req, res) {
 학생의 메모:
 "${text.trim()}"`;
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }]
-          }
-        ]
-      })
+    const requestBody = JSON.stringify({
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ]
     });
+
+    // 1차: gemini-3.6-flash 호출
+    let response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${primaryModel}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: requestBody
+      }
+    );
+
+    // 모델 버전에 따른 404 발생 시 안전하게 호환 모델로 fallback
+    if (!response.ok && response.status === 404) {
+      console.warn(`${primaryModel} 호출 실패 (404), ${fallbackModel}로 자동 대체합니다.`);
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${fallbackModel}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: requestBody
+        }
+      );
+    }
 
     if (!response.ok) {
       const errData = await response.text();
