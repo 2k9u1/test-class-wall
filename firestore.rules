@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /memos/{memoId} {
+      // 누구나 메모를 읽고 지울 수 있습니다.
+      allow read, delete: if true;
+
+      // 새 메모는 5글자 이상일 때만 저장 허용
+      allow create: if request.resource.data.text is string
+        && request.resource.data.text.size() >= 5
+        && 'createdAt' in request.resource.data;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
