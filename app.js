@@ -12,6 +12,7 @@ import {
   addDoc,
   getDocs,
   deleteDoc,
+  updateDoc,
   doc,
   query,
   orderBy
@@ -173,6 +174,140 @@ async function deleteMemo(id) {
 }
 
 
+
+// ===================================================
+// AI 코멘트 관련 함수 (Gemini API)
+// Vercel 서버리스 함수(/api/gemini)를 호출합니다.
+// 개인정보 보호 규칙: uid, 이메일 등 식별 정보는 일체 보내지 않고 오직 메모 내용(text)만 전송합니다.
+// ===================================================
+
+// 서버로 AI 코멘트 생성을 요청합니다.
+async function requestAiComment(text) {
+  try {
+    const response = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text }) // 오직 메모 텍스트만 전달
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(
+          "로컬 개발 환경(Live Server)에서는 /api/gemini 엔드포인트를 직접 실행할 수 없습니다.\nVercel에 배포하거나 Vercel CLI(npx vercel dev)로 실행해 주세요."
+        );
+      }
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson.error || `서버 응답 오류 (${response.status})`);
+    }
+
+    const data = await response.json();
+    return data.comment;
+  } catch (error) {
+    console.error("AI 코멘트 요청 실패:", error);
+    throw error;
+  }
+}
+
+// 개별 메모에 AI 코멘트 달기 (교사 전용)
+async function addAiCommentToMemo(memoId, memoText, btnElement) {
+  const role = getUserRole(currentUser);
+  if (role !== "teacher") {
+    alert("AI 코멘트 작성 권한은 교사에게만 있습니다.");
+    return;
+  }
+
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.textContent = "🤖 생성 중...";
+  }
+
+  try {
+    const comment = await requestAiComment(memoText);
+    await updateDoc(doc(db, "memos", memoId), {
+      aiComment: comment
+    });
+    await render();
+  } catch (error) {
+    alert("AI 코멘트 생성 실패:\n" + error.message);
+    if (btnElement) {
+      btnElement.disabled = false;
+      btnElement.textContent = "🤖 AI 코멘트 달기";
+    }
+  }
+}
+
+// 담벼락의 모든 메모에 AI 코멘트 일괄 달기 (교사 전용)
+async function addAiCommentToAllMemos(btnElement) {
+  const role = getUserRole(currentUser);
+  if (role !== "teacher") {
+    alert("교사만 실행할 수 있습니다.");
+    return;
+  }
+
+  const memos = await loadMemos();
+  if (memos.length === 0) {
+    alert("담벼락에 등록된 메모가 없습니다.");
+    return;
+  }
+
+  const targetMemos = memos.filter((m) => !m.aiComment);
+  const listToProcess = targetMemos.length > 0 ? targetMemos : memos;
+
+  if (targetMemos.length === 0) {
+    if (!confirm("모든 메모에 이미 AI 코멘트가 있습니다. 전체를 다시 생성하시겠습니까?")) {
+      return;
+    }
+  }
+
+  if (btnElement) {
+    btnElement.disabled = true;
+    btnElement.textContent = `🤖 코멘트 생성 중... (0/${listToProcess.length})`;
+  }
+
+  let count = 0;
+  for (const memo of listToProcess) {
+    try {
+      const comment = await requestAiComment(memo.text);
+      await updateDoc(doc(db, "memos", memo.id), {
+        aiComment: comment
+      });
+      count++;
+      if (btnElement) {
+        btnElement.textContent = `🤖 코멘트 생성 중... (${count}/${listToProcess.length})`;
+      }
+    } catch (e) {
+      console.error(`메모(${memo.id}) AI 코멘트 생성 실패:`, e);
+    }
+  }
+
+  await render();
+  alert(`총 ${count}개의 메모에 AI 코멘트 생성을 완료했습니다!`);
+
+  if (btnElement) {
+    btnElement.disabled = false;
+    btnElement.textContent = "🤖 전체 메모 AI 코멘트 달기";
+  }
+}
+
+// 교사용 액션 버튼 영역(전체 AI 코멘트 달기 등) 그리기
+function renderTeacherActions() {
+  const teacherActions = document.getElementById("teacherActions");
+  if (!teacherActions) return;
+  teacherActions.innerHTML = "";
+
+  const role = getUserRole(currentUser);
+  if (role === "teacher") {
+    const batchBtn = document.createElement("button");
+    batchBtn.className = "teacher-batch-btn";
+    batchBtn.textContent = "🤖 전체 메모 AI 코멘트 달기";
+    batchBtn.addEventListener("click", function () {
+      addAiCommentToAllMemos(batchBtn);
+    });
+    teacherActions.appendChild(batchBtn);
+  }
+}
+
+
 // ===================================================
 // 화면 그리기
 // ===================================================
@@ -180,6 +315,8 @@ async function deleteMemo(id) {
 async function render() {
   const wall = document.getElementById("wall");
   wall.innerHTML = "";
+
+  renderTeacherActions();
 
   const memos = await loadMemos();
   memos.forEach(function (memo) {
@@ -194,23 +331,57 @@ function makeMemo(memo) {
 
   const role = getUserRole(currentUser);
 
+  // 상단: 삭제 버튼과 메모 본문
+  const contentDiv = document.createElement("div");
+  contentDiv.className = "memo-content";
+
   // 교사(teacher): 모든 메모를 삭제할 수 있는 모든 권한 보유
   // 학생(student): 다른 사람 것은 건들지 못하며, 본인이 작성한 메모만 삭제 가능
   const canDelete = currentUser && (role === "teacher" || memo.uid === currentUser.uid || !memo.uid);
   if (canDelete) {
     const del = document.createElement("button");
+    del.className = "del-btn";
     del.textContent = "×";
     del.title = role === "teacher" ? "교사 권한으로 삭제" : "삭제";
     del.addEventListener("click", async function () {
       await deleteMemo(memo.id);
       await render();
     });
-    div.appendChild(del);
+    contentDiv.appendChild(del);
   }
 
   const span = document.createElement("span");
   span.textContent = memo.text;
-  div.appendChild(span);
+  contentDiv.appendChild(span);
+  div.appendChild(contentDiv);
+
+  // AI 코멘트가 있는 경우 말풍선으로 표시
+  if (memo.aiComment) {
+    const commentBox = document.createElement("div");
+    commentBox.className = "ai-comment";
+
+    const commentHeader = document.createElement("div");
+    commentHeader.className = "ai-comment-header";
+    commentHeader.textContent = "🤖 AI 선생님 피드백";
+    commentBox.appendChild(commentHeader);
+
+    const commentBody = document.createElement("div");
+    commentBody.textContent = memo.aiComment;
+    commentBox.appendChild(commentBody);
+
+    div.appendChild(commentBox);
+  }
+
+  // 교사(teacher)에게만 각 메모별 AI 코멘트 생성 버튼 노출
+  if (role === "teacher") {
+    const aiBtn = document.createElement("button");
+    aiBtn.className = "ai-btn";
+    aiBtn.textContent = memo.aiComment ? "🤖 AI 코멘트 다시 달기" : "🤖 AI 코멘트 달기";
+    aiBtn.addEventListener("click", function () {
+      addAiCommentToMemo(memo.id, memo.text, aiBtn);
+    });
+    div.appendChild(aiBtn);
+  }
 
   return div;
 }

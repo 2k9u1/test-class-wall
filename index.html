@@ -19,8 +19,17 @@
 
     /* 메모가 붙는 담벼락 */
     #wall { display: flex; flex-wrap: wrap; gap: 10px; }
-    .memo { border: 1px solid #ddd; background: #fffde7; padding: 10px; width: 200px; font-size: 15px; }
-    .memo button { float: right; }
+    .memo { border: 1px solid #ddd; background: #fffde7; padding: 10px; width: 220px; font-size: 15px; border-radius: 6px; box-sizing: border-box; }
+    .memo button.del-btn { float: right; border: none; background: none; font-size: 16px; cursor: pointer; color: #888; }
+    .memo button.del-btn:hover { color: #e53935; }
+    .memo .memo-content { margin-bottom: 8px; line-height: 1.4; word-break: break-word; }
+    .memo .ai-btn { font-size: 12px; padding: 3px 6px; cursor: pointer; background: #e8f4fd; border: 1px solid #90caf9; border-radius: 4px; color: #1565c0; margin-top: 6px; }
+    .memo .ai-btn:hover { background: #bbdefb; }
+    .ai-comment { background: #f0f7ff; border-left: 3px solid #1976d2; padding: 6px 8px; font-size: 13px; color: #333; border-radius: 2px; margin-top: 8px; line-height: 1.4; word-break: break-word; }
+    .ai-comment-header { font-weight: bold; color: #1565c0; font-size: 11px; margin-bottom: 3px; }
+    #teacherActions { margin: 10px 0; }
+    .teacher-batch-btn { background: #e3f2fd; border: 1px solid #64b5f6; padding: 6px 12px; border-radius: 4px; color: #0d47a1; font-weight: bold; cursor: pointer; }
+    .teacher-batch-btn:hover { background: #bbdefb; }
   </style>
 </head>
 <body>
@@ -34,6 +43,9 @@
   <div id="writer">
     <textarea id="input" rows="3" placeholder="메모를 쓰고 엔터"></textarea>
   </div>
+
+  <!-- 교사용 액션 영역 (전체 AI 코멘트 달기 등) -->
+  <div id="teacherActions"></div>
 
   <!-- 메모는 app.js가 그립니다 -->
   <div id="wall"></div>
