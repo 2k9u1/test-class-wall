@@ -43,6 +43,18 @@ const provider = new GoogleAuthProvider();
 // 현재 로그인한 사용자 정보 (로그아웃 상태면 null)
 let currentUser = null;
 
+// 교사(teacher) UID 목록
+// 여기에 등록된 UID는 모든 권한을 가진 'teacher' 역할을 갖습니다.
+const TEACHER_UIDS = [
+  "eY2ZWJ2TB1dRkxx7G8N6D1QJWnp2", // 교사 UID (현재 로그인 계정)
+];
+
+// 사용자의 역할을 반환합니다 ('teacher' 또는 'student')
+function getUserRole(user) {
+  if (!user) return null;
+  return TEACHER_UIDS.includes(user.uid) ? "teacher" : "student";
+}
+
 
 
 // ===================================================
@@ -75,8 +87,11 @@ function renderUserArea() {
   userArea.innerHTML = "";
 
   if (currentUser) {
+    const role = getUserRole(currentUser);
+    const roleBadge = role === "teacher" ? "👨‍🏫 선생님(teacher)" : "👨‍🎓 학생(student)";
+
     const greeting = document.createElement("span");
-    greeting.textContent = (currentUser.displayName || "선생님") + " 님 환영합니다! ";
+    greeting.textContent = `${currentUser.displayName || "사용자"} 님 [${roleBadge}] 환영합니다! `;
     userArea.appendChild(greeting);
 
     const logoutBtn = document.createElement("button");
@@ -118,7 +133,7 @@ async function loadMemos() {
 }
 
 // 메모를 새로 씁니다. (5글자 이상만 저장)
-// 백엔드 2: 여기에 "누가 썼는지"(uid)를 함께 저장하게 됩니다.
+// 백엔드 2: 여기에 "누가 썼는지"(uid)와 역할(role)을 함께 저장하게 됩니다.
 async function addMemo(text) {
   if (!currentUser) {
     alert("메모를 작성하려면 먼저 Google 로그인을 해 주세요.");
@@ -130,12 +145,15 @@ async function addMemo(text) {
     return;
   }
 
+  const role = getUserRole(currentUser);
+
   try {
     await addDoc(collection(db, "memos"), {
       text: text,
       createdAt: Date.now(),
       uid: currentUser.uid,
-      author: currentUser.displayName || "선생님"
+      author: currentUser.displayName || (role === "teacher" ? "선생님" : "학생"),
+      role: role
     });
   } catch (error) {
     console.error("메모 추가 오류:", error);
@@ -144,13 +162,13 @@ async function addMemo(text) {
 }
 
 // 메모를 지웁니다.
-// 백엔드 2: 지금은 누구든 남의 메모를 지울 수 있습니다. 이걸 막는 것이 과제입니다.
+// 교사는 모든 메모를 지울 수 있고, 학생은 본인 메모만 지울 수 있습니다.
 async function deleteMemo(id) {
   try {
     await deleteDoc(doc(db, "memos", id));
   } catch (error) {
     console.error("메모 삭제 오류:", error);
-    alert("메모 삭제에 실패했습니다.");
+    alert("삭제 권한이 없거나 오류가 발생했습니다.");
   }
 }
 
@@ -174,11 +192,15 @@ function makeMemo(memo) {
   const div = document.createElement("div");
   div.className = "memo";
 
-  // 백엔드 2: 내가 쓴 메모이거나 작성자 정보가 없는 기존 메모만 삭제 버튼 표시
-  const canDelete = currentUser && (memo.uid === currentUser.uid || !memo.uid);
+  const role = getUserRole(currentUser);
+
+  // 교사(teacher): 모든 메모를 삭제할 수 있는 모든 권한 보유
+  // 학생(student): 다른 사람 것은 건들지 못하며, 본인이 작성한 메모만 삭제 가능
+  const canDelete = currentUser && (role === "teacher" || memo.uid === currentUser.uid || !memo.uid);
   if (canDelete) {
     const del = document.createElement("button");
     del.textContent = "×";
+    del.title = role === "teacher" ? "교사 권한으로 삭제" : "삭제";
     del.addEventListener("click", async function () {
       await deleteMemo(memo.id);
       await render();

@@ -2,20 +2,32 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // 교사(teacher) UID 목록 및 권한 확인 함수
+    function isTeacher() {
+      return request.auth != null && request.auth.uid in [
+        'eY2ZWJ2TB1dRkxx7G8N6D1QJWnp2' // 교사 UID (필요시 추가)
+      ];
+    }
+
     match /memos/{memoId} {
-      // 누구나 메모를 읽을 수 있습니다.
+      // 1. 조회: 누구나 담벼락을 읽을 수 있습니다.
       allow read: if true;
 
-      // 로그인한 사용자만 5글자 이상으로 새 메모 작성 허용
+      // 2. 생성: 로그인한 사용자는 5글자 이상으로 본인 메모를 생성할 수 있습니다.
       allow create: if request.auth != null
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 5
-        && 'createdAt' in request.resource.data
-        && request.resource.data.uid == request.auth.uid;
+        && request.resource.data.uid == request.auth.uid
+        && 'createdAt' in request.resource.data;
 
-      // 본인이 작성한 메모이거나 작성자 정보가 없는 기존 메모만 삭제 허용
+      // 3. 삭제: 교사(teacher)는 모든 메모를 삭제할 수 있고,
+      //    학생(student)은 다른 사람 것은 건들지 못하고 본인 메모만 삭제할 수 있습니다.
       allow delete: if request.auth != null
-        && (!('uid' in resource.data) || resource.data.uid == request.auth.uid);
+        && (isTeacher() || resource.data.uid == request.auth.uid || !('uid' in resource.data));
+
+      // 4. 수정: 모든 권한을 가진 교사만 수정할 수 있습니다.
+      allow update: if isTeacher();
     }
 
     match /{document=**} {
